@@ -341,18 +341,21 @@
     font-size:.78rem; color:#8a6a3d; letter-spacing:.15em;
     background: rgba(0,0,0,0.04); padding: 4px 10px; border-radius: 6px;
   }
+  
+  /* 画像の比率崩れを防ぐためのCSS変更 */
   .photo-frame{
     margin: 16px 0; border-radius:14px; overflow:hidden;
-    aspect-ratio: 4/3; background:#d2c49d;
+    aspect-ratio: 4/3; background-color:#d2c49d;
+    background-size: cover; background-position: center; background-repeat: no-repeat;
     box-shadow: inset 0 0 0 4px #fff, 0 8px 20px rgba(0,0,0,.28);
     display:flex; align-items:center; justify-content:center;
     position:relative;
   }
-  .photo-frame img{ width:100%; height:100%; object-fit:cover; display:block; }
   .photo-fallback{
     font-family:'Shippori Antique', sans-serif; font-size:.82rem;
     color:#736442; text-align:center; padding:16px; line-height:1.6;
   }
+  
   .msg-title{
     font-family:'Zen Maru Gothic', sans-serif; font-weight:900;
     font-size: clamp(1.1rem, 4.8vw, 1.3rem);
@@ -396,17 +399,18 @@
     transition: all 0.1s ease;
   }
   .share-tile:disabled{ opacity:.5; cursor:default; transform:none !important; box-shadow:none !important; }
-  .save-tile {
-    background: linear-gradient(180deg, #32294f, #1f1933);
-    box-shadow: 0 4px 0 #0f0b1a; grid-column: 1 / -1;
-  }
-  .save-tile:active{ transform: translateY(3px); box-shadow: 0 1px 0 #0f0b1a; }
-  .line-tile{ background: linear-gradient(180deg, #06e060, #05b04b); box-shadow:0 4px 0 #037833; }
-  .line-tile:active{ transform: translateY(3px); box-shadow:0 1px 0 #037833; }
+  
+  .universal-tile { background: linear-gradient(45deg, #f09433 0%, #e6683c 25%, #dc2743 50%, #cc2366 75%, #bc1888 100%); box-shadow: 0 4px 0 #8b105d; grid-column: 1 / -1; font-size: 0.95rem;}
+  .universal-tile:active { transform: translateY(3px); box-shadow: 0 1px 0 #8b105d; }
+  
   .x-tile{ background: linear-gradient(180deg, #262626, #000000); box-shadow:0 4px 0 #111; }
   .x-tile:active{ transform: translateY(3px); box-shadow:0 1px 0 #111; }
+  
   .discord-tile{ background: linear-gradient(180deg, #6572f6, #4754e3); box-shadow:0 4px 0 #2b35a3; }
   .discord-tile:active{ transform: translateY(3px); box-shadow:0 1px 0 #2b35a3; }
+  
+  .save-tile { background: linear-gradient(180deg, #32294f, #1f1933); box-shadow: 0 4px 0 #0f0b1a; grid-column: 1 / -1;}
+  .save-tile:active{ transform: translateY(3px); box-shadow: 0 1px 0 #0f0b1a; }
 
   /* Toast Overlay */
   .toast{
@@ -505,9 +509,8 @@
             <div class="rank" id="rankText">大吉</div>
             <div class="rank-num" id="rankNum">NO. 01</div>
           </div>
-          <div class="photo-frame">
-            <img id="resultImg" src="" alt="結果の写真" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
-            <div class="photo-fallback" style="display:none;">写真が見つかりません。<br>同じフォルダ内に<br><b id="fallbackName">img1.jpg</b> を配置してください。</div>
+          <div class="photo-frame" id="photoFrame">
+            <div class="photo-fallback" id="photoFallback" style="display:none;">写真が見つかりません。<br>同じフォルダ内に<br><b id="fallbackName">img1.jpg</b> を配置してください。</div>
           </div>
           <hr class="divider">
           <div class="msg-title" id="msgTitle"></div>
@@ -518,10 +521,11 @@
           <button class="again-btn" id="againBtn">もう一度引く</button>
         </div>
         <div class="share-grid">
-          <button class="share-tile save-tile" id="saveImgBtn">🖼 結果画像を端末に保存</button>
-          <button class="share-tile line-tile" id="lineBtn">LINEアプリで共有</button>
+          <button class="share-tile universal-tile" id="universalShareBtn">📲 SNSでシェア (インスタ等)</button>
+          
           <button class="share-tile x-tile" id="xBtn">Xアプリで共有</button>
           <button class="share-tile discord-tile" id="discordBtn">Discordで共有</button>
+          <button class="share-tile save-tile" id="saveImgBtn">🖼 画像を端末に保存</button>
         </div>
       </div>
 
@@ -627,7 +631,6 @@
   const result = document.getElementById('result');
   const eruption = document.getElementById('eruption');
   const remainCount = document.getElementById('remainCount');
-  const nameInput = document.getElementById('nameInput');
   const omikujiStick = document.getElementById('omikujiStick');
   const stickText = document.getElementById('stickText');
   const soundToggle = document.getElementById('soundToggle');
@@ -778,37 +781,33 @@
       result.classList.remove('premium-gold');
     }
 
-    const img = document.getElementById('resultImg');
-    const fallback = img.nextElementSibling;
-    fallback.style.display = 'none';
-    img.style.display = 'block';
+    const photoFrame = document.getElementById('photoFrame');
+    const fallback = document.getElementById('photoFallback');
     document.getElementById('fallbackName').textContent = f.img || 'img1.jpg';
     
+    // 画像を背景としてセット（比率崩れ防止のキモ）
     if (f.img){
-      img.src = f.img;
+      photoFrame.style.backgroundImage = `url('${f.img}')`;
+      fallback.style.display = 'none';
     } else {
-      img.removeAttribute('src');
-      img.style.display = 'none';
+      photoFrame.style.backgroundImage = 'none';
       fallback.style.display = 'flex';
     }
     
-    // 切り替え前に表示状態をリセット
     result.classList.remove('show');
     void result.offsetWidth;
     
-    // 画面をリザルト画面に切り替え
     switchScreen(resultScreen);
-    
-    // 表示アニメーションをトリガー
     result.classList.add('show');
     
-    setTimeout(() => {
-      AudioFX.playChime(f.rank === "大吉");
-    }, 150);
+    setTimeout(() => { AudioFX.playChime(f.rank === "大吉"); }, 150);
   }
 
+  // シェア用テキストの生成（URLを必ず含める）
   function shareText(f){
-    return `【ボルみくじ】運勢は「${f.rank}」！\n『${f.title}』\n${f.body.replace(/<[^>]*>/g, '')}\n⛩️ 火山鳴動、おみくじを引こう！`;
+    // 現在のページのURLを取得（不要なパラメータ等があれば削除）
+    const pageUrl = window.location.href.split('?')[0]; 
+    return `【ボルみくじ】運勢は「${f.rank}」！\n『${f.title}』\n${f.body.replace(/<[^>]*>/g, '')}\n⛩️ 火山鳴動、おみくじを引こう！\n${pageUrl}`;
   }
 
   let toastTimer = null;
@@ -838,7 +837,7 @@
   async function saveShareImage(){
     const btn = document.getElementById('saveImgBtn');
     const original = btn.textContent;
-    btn.disabled = true; btn.textContent = '✨ 高画質画像を作成中…';
+    btn.disabled = true; btn.textContent = '保存中…';
     try{
       const blob = await getShareImageBlob();
       const url = URL.createObjectURL(blob);
@@ -846,20 +845,53 @@
       a.href = url; a.download = 'ボルみくじ_結果.png';
       document.body.appendChild(a); a.click(); a.remove();
       URL.revokeObjectURL(url);
-      toast('画像を保存しました！LINEやX、Discordに添付して自慢しましょう。');
+      toast('画像を保存しました！SNSに添付して自慢しましょう。');
     }catch(err){
-      console.error(err);
-      toast('画像の書き出しに失敗しました。ブラウザの権限設定を確認してください。');
+      toast('保存に失敗しました。ブラウザの権限設定を確認してください。');
     }finally{
       btn.disabled = false; btn.textContent = original;
     }
   }
 
-  function shareToLine(){
+  // 万能シェア機能（Instagram ストーリーズ/DM、LINE など）
+  async function shareUniversal(){
     if (!currentFortune) return;
-    const text = encodeURIComponent(shareText(currentFortune));
-    window.open(`https://line.me/R/msg/text/?${text}`, '_blank');
-    toast('LINE用の画面を開きました。画像付きで送る場合は、あらかじめ「画像を保存」して添付してください。');
+    const text = shareText(currentFortune);
+    const btn = document.getElementById('universalShareBtn');
+    const original = btn.textContent;
+    btn.disabled = true; btn.textContent = '準備中…';
+
+    try {
+      const blob = await getShareImageBlob();
+      const file = new File([blob], 'volcano-fortune.png', { type: 'image/png' });
+      const url = window.location.href.split('?')[0];
+
+      // スマホのシェア機能（画像＋テキスト＋URL）
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        await navigator.share({
+          title: 'ボルみくじ結果',
+          text: text,
+          url: url,
+          files: [file]
+        });
+      } else if (navigator.share) {
+        // 画像なしのシェア機能（一部環境向け）
+        await navigator.share({
+          title: 'ボルみくじ結果',
+          text: text,
+          url: url
+        });
+      } else {
+        // PCなどシェア機能がない場合はクリップボードにコピー
+        await navigator.clipboard.writeText(text);
+        await saveShareImage();
+        toast('画像とテキストをコピーしました！インスタなどに貼り付けてね。');
+      }
+    } catch (err) {
+      if (err.name !== 'AbortError') toast('シェアがキャンセルされたか失敗しました。');
+    } finally {
+      btn.disabled = false; btn.textContent = original;
+    }
   }
 
   function shareToX(){
@@ -867,42 +899,23 @@
     const text = shareText(currentFortune) + "\n#ボルみくじ";
     const encodedText = encodeURIComponent(text);
     const xWebIntentUrl = `https://x.com/intent/tweet?text=${encodedText}`;
-    
     window.open(xWebIntentUrl, '_blank');
-    toast('Xでポスト画面を開きました（アプリがインストールされている場合は自動で起動します）。');
   }
 
   async function shareToDiscord(){
     if (!currentFortune) return;
     const text = shareText(currentFortune);
-    const btn = document.getElementById('discordBtn');
-    const original = btn.textContent;
-
-    if (navigator.share){
-      btn.disabled = true; btn.textContent = '共有シート準備中…';
-      try{
-        let file = null;
-        try{ file = new File([await getShareImageBlob()], 'volcano-fortune.png', { type:'image/png' }); }catch(e){}
-        if (file && navigator.canShare && navigator.canShare({ files:[file] })){
-          await navigator.share({ files:[file], title:'ボルみくじ結果', text });
-        } else {
-          await navigator.share({ title:'ボルみくじ結果', text });
-        }
-      }catch(err){}finally{ btn.disabled = false; btn.textContent = original; }
-      return;
-    }
-
     try{
       await navigator.clipboard.writeText(text);
       await saveShareImage();
-      toast('結果の文章をクリップボードにコピーし、画像を保存しました！Discordに貼り付けて送信してください。');
+      toast('結果の文章とURLをコピーし、画像を保存しました！Discordに貼り付けて送信してください。');
     }catch(err){
-      toast('クリップボードコピーに失敗しました。文章を手動コピーしてDiscordに共有してください。');
+      toast('コピーに失敗しました。');
     }
   }
 
   document.getElementById('saveImgBtn').addEventListener('click', saveShareImage);
-  document.getElementById('lineBtn').addEventListener('click', shareToLine);
+  document.getElementById('universalShareBtn').addEventListener('click', shareUniversal);
   document.getElementById('xBtn').addEventListener('click', shareToX);
   document.getElementById('discordBtn').addEventListener('click', shareToDiscord);
 
@@ -951,7 +964,6 @@
     AudioFX.init(); 
     
     try {
-      // センサーの権限リクエスト（HTTPS環境以外ではエラーになるためtry-catchで保護）
       if (typeof DeviceMotionEvent !== 'undefined' && typeof DeviceMotionEvent.requestPermission === 'function') {
         const permissionState = await DeviceMotionEvent.requestPermission();
         if (permissionState === 'granted') {
@@ -964,7 +976,6 @@
       console.warn("DeviceMotion is not supported in this environment.", err);
     }
     
-    // エラーが起きても確実に画面を切り替える
     switchScreen(drawScreen);
   });
 
@@ -1018,7 +1029,7 @@
           eruption.classList.remove('shake', 'flash', 'active');
           omikujiStick.classList.remove('drawn');
           
-          showResult(fortune); // この中で結果画面へ遷移します
+          showResult(fortune); 
           
           drawBtn.disabled = false;
           hintText.style.visibility = 'visible';
