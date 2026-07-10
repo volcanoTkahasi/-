@@ -1,0 +1,1043 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>ボルみくじ</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Zen+Old+Mincho:wght@500;900&family=Zen+Maru+Gothic:wght@400;500;700;900&family=Shippori+Antique&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<style>
+  :root{
+    --washi: #f2e8d3;
+    --washi-dark: #e4d3ab;
+    --night: #0b0d1b;
+    --night-2: #14193a;
+    --shrine-red: #b8221f;
+    --shrine-red-deep: #7c1614;
+    --magma: #ff4500;
+    --magma-2: #ff9f43;
+    --ash: #232326;
+    --gold: #d4a017;
+    --gold-light: #f3e1b3;
+    --ink: #1a140e;
+  }
+  *{box-sizing:border-box;}
+  html,body{
+    margin:0; padding:0; min-height:100%;
+    background:
+      radial-gradient(circle at 50% 20%, #1e2555 0%, transparent 60%),
+      linear-gradient(180deg, var(--night) 0%, #12152b 50%, #05060c 100%);
+    color: var(--washi);
+    font-family: 'Zen Maru Gothic', sans-serif;
+    overflow-x:hidden;
+    -webkit-tap-highlight-color: transparent;
+  }
+  
+  /* Background Elements */
+  .stars{
+    position:fixed; inset:0; z-index:0; pointer-events:none;
+    background-image:
+      radial-gradient(1.5px 1.5px at 15% 25%, #fff9 40%, transparent 60%),
+      radial-gradient(1.5px 1.5px at 75% 15%, #fff7 40%, transparent 60%),
+      radial-gradient(1px 1px at 85% 55%, #fff5 40%, transparent 60%),
+      radial-gradient(1px 1px at 35% 70%, #fff6 40%, transparent 60%),
+      radial-gradient(2px 2px at 50% 10%, #fff9 40%, transparent 60%),
+      radial-gradient(1.2px 1.2px at 90% 80%, #fff4 40%, transparent 60%);
+    opacity:.7;
+  }
+  .bg-embers {
+    position: fixed; inset: 0; z-index: 0; pointer-events: none;
+    overflow: hidden;
+  }
+  .bg-ember {
+    position: absolute; bottom: -10px; border-radius: 50%;
+    background: radial-gradient(circle, var(--magma-2) 20%, transparent 70%);
+    opacity: 0; animation: floatUp 8s linear infinite;
+  }
+  @keyframes floatUp {
+    0% { transform: translateY(0) translateX(0) scale(0.5); opacity: 0; }
+    20% { opacity: 0.6; }
+    80% { opacity: 0.4; }
+    100% { transform: translateY(-105vh) translateX(var(--drift, 40px)) scale(1.2); opacity: 0; }
+  }
+
+  .wrap{
+    position:relative; z-index:1;
+    max-width: 540px; margin: 0 auto;
+    padding: clamp(24px,6vw,44px) clamp(16px,5vw,24px) 60px;
+    min-height:100vh;
+    display:flex; flex-direction:column; align-items:center;
+  }
+
+  /* Screen Transitions */
+  .screen {
+    display: none;
+    width: 100%;
+    flex-direction: column;
+    align-items: center;
+    animation: fadeIn 0.4s ease;
+  }
+  .screen.active {
+    display: flex;
+  }
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(15px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  header{ text-align:center; margin-bottom: clamp(20px,5vw,36px); }
+  .eyebrow{
+    font-family:'Shippori Antique', sans-serif;
+    letter-spacing:.4em; font-size:.75rem; color: var(--magma-2);
+    margin:0 0 8px; text-shadow: 0 0 6px rgba(255,159,67,0.3);
+  }
+  h1{
+    font-family:'Zen Old Mincho', serif; font-weight:900;
+    font-size: clamp(2.6rem, 11vw, 3.6rem);
+    margin:0; color: var(--washi);
+    text-shadow: 0 0 20px rgba(255,69,0,0.4), 0 4px 10px rgba(0,0,0,0.5);
+    letter-spacing:.08em;
+  }
+  h1 span { color: var(--magma); text-shadow: 0 0 15px var(--magma); }
+  .sub{
+    font-size: clamp(.82rem, 3.2vw, .95rem);
+    color: #b3b9df; margin-top:10px; line-height:1.7;
+    letter-spacing: 0.02em;
+  }
+
+  /* Controls row (Name + Sound) */
+  .controls-row {
+    display: flex; gap: 10px; width: 100%; max-width: 340px;
+    margin-bottom: clamp(16px,5vw,26px); align-items: center;
+  }
+  .name-box{
+    display:flex; align-items:center; gap:10px;
+    background: rgba(255,255,255,.05);
+    border: 1px solid rgba(255,159,67,.25);
+    border-radius: 999px;
+    padding: 6px 6px 6px 16px;
+    flex: 1;
+    box-shadow: inset 0 2px 4px rgba(0,0,0,0.3);
+  }
+  .name-box label{
+    font-family:'Shippori Antique', sans-serif;
+    font-size:.75rem; color: var(--magma-2); letter-spacing:.1em; white-space:nowrap;
+  }
+  .name-box input{
+    flex:1; min-width:0; border:none; outline:none;
+    background: rgba(0,0,0,.35); color: var(--washi);
+    font-family:'Zen Maru Gothic', sans-serif; font-size:.9rem;
+    padding: 8px 14px; border-radius: 999px;
+    transition: all 0.2s ease;
+  }
+  .name-box input:focus {
+    background: rgba(0,0,0,.5);
+    box-shadow: 0 0 8px rgba(255,159,67,0.3);
+  }
+  .name-box input::placeholder{ color:#6c729c; }
+
+  .sound-toggle {
+    width: 44px; height: 44px; border-radius: 50%;
+    background: rgba(255,255,255,0.06);
+    border: 1px solid rgba(214,160,23,0.3);
+    color: var(--gold-light); cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.2rem; transition: all 0.2s ease;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+  }
+  .sound-toggle:active { transform: scale(0.92); }
+  .sound-toggle.muted { color: #6c729c; background: rgba(0,0,0,0.2); border-color: rgba(255,255,255,0.1); }
+
+  /* ---- shrine box scene ---- */
+  .scene{
+    position:relative; width:100%;
+    display:flex; flex-direction:column; align-items:center;
+    margin: 15px 0 10px;
+  }
+  .box-stage{
+    position:relative; width: min(250px, 60vw); aspect-ratio: 1/1;
+    display:flex; align-items:center; justify-content:center;
+    cursor:pointer; user-select:none;
+    z-index: 10;
+    transition: transform .15s ease;
+  }
+  .box-stage:active{ transform: scale(.95); }
+  .box-stage.shaking{ animation: boxshake .45s ease-in-out infinite; }
+  @keyframes boxshake{
+    0%,100%{ transform: rotate(0deg) translate(0, 0); }
+    15%{ transform: rotate(-5deg) translate(-6px, -2px); }
+    30%{ transform: rotate(5deg) translate(6px, 2px); }
+    45%{ transform: rotate(-4deg) translate(-4px, 3px); }
+    60%{ transform: rotate(4deg) translate(5px, -3px); }
+    75%{ transform: rotate(-2deg) translate(-2px, 1px); }
+    90%{ transform: rotate(2deg) translate(3px, -1px); }
+  }
+  .box-svg{ width:100%; height:100%; filter: drop-shadow(0 12px 26px rgba(0,0,0,.55)); }
+
+  /* Omikuji Stick animation */
+  .omikuji-stick {
+    position: absolute;
+    bottom: 52%; left: 50%; width: 14px; height: 85px;
+    background: linear-gradient(90deg, #eddba4, #c9a35b);
+    border: 1.5px solid #6d4f19;
+    border-radius: 2px;
+    z-index: 5;
+    transform: translateX(-50%) translateY(50px) scaleY(0);
+    transform-origin: bottom center;
+    transition: transform 0.45s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    display: flex; align-items: center; justify-content: center;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.4);
+  }
+  .omikuji-stick.drawn {
+    transform: translateX(-50%) translateY(-25px) scaleY(1) rotate(6deg);
+  }
+  .omikuji-stick-text {
+    font-family: 'Zen Old Mincho', serif; font-weight: 900;
+    font-size: 9px; color: var(--shrine-red-deep);
+    writing-mode: vertical-rl; text-orientation: upright;
+    letter-spacing: -0.1em; line-height: 1;
+  }
+
+  .hint{
+    font-size: .88rem; color: var(--magma-2); margin-top: 10px;
+    font-family:'Shippori Antique', sans-serif; letter-spacing:.1em;
+    animation: pulse 1.6s ease-in-out infinite;
+    text-shadow: 0 0 8px rgba(255,159,67,0.2);
+    text-align: center; line-height: 1.6;
+  }
+  @keyframes pulse{ 0%,100%{opacity:.5;} 50%{opacity:1;} }
+
+  .primary-btn{
+    margin-top: clamp(14px, 4vw, 24px);
+    font-family:'Zen Maru Gothic', sans-serif; font-weight:900;
+    font-size: clamp(1.05rem, 4.5vw, 1.2rem);
+    padding: 14px 44px; border-radius: 999px; border:none;
+    color:#251000; letter-spacing:.08em;
+    background: linear-gradient(180deg, #ffe0a3, var(--gold) 65%, #b38209 100%);
+    box-shadow: 0 6px 0 #735604, 0 12px 24px rgba(0,0,0,.45);
+    cursor:pointer; -webkit-appearance:none; appearance:none;
+    min-height:50px;
+    transition: transform .1s ease, box-shadow .1s ease;
+  }
+  .primary-btn:active{ transform: translateY(4px); box-shadow: 0 2px 0 #735604, 0 6px 12px rgba(0,0,0,.4); }
+  .primary-btn:disabled{ opacity:.4; cursor:default; transform:none; box-shadow: 0 6px 0 #735604; }
+
+  .text-btn {
+    background: none; border: none; color: #9fa5cb;
+    font-family: 'Zen Maru Gothic', sans-serif; font-size: 0.9rem;
+    text-decoration: underline; cursor: pointer;
+    margin-top: 30px; padding: 10px;
+  }
+  .text-btn:hover { color: #fff; }
+
+  .stick-count{
+    margin-top:14px; font-size:.78rem; color:#9fa5cb;
+    font-family:'Shippori Antique', sans-serif; letter-spacing:.1em;
+  }
+
+  /* ---- eruption overlay ---- */
+  .eruption{
+    position:fixed; inset:0; z-index:100;
+    display:flex; align-items:center; justify-content:center;
+    background: radial-gradient(circle at 50% 100%, #660e00 0%, #1c0502 65%, #000 100%);
+    opacity:0; pointer-events:none;
+    transition: opacity .2s ease;
+    overflow:hidden;
+  }
+  .eruption.active{ opacity:1; pointer-events:all; }
+  .eruption.shake{ animation: screenshake .1s linear infinite; }
+  .eruption.flash::after {
+    content: ''; position: absolute; inset: 0; background: #fff;
+    z-index: 10; opacity: 0; animation: flashEffect 0.35s ease-out;
+  }
+  @keyframes flashEffect { 0% { opacity: 0.9; } 100% { opacity: 0; } }
+  
+  @keyframes screenshake{
+    0%{ transform: translate(0,0); }
+    25%{ transform: translate(-5px,3px); }
+    50%{ transform: translate(4px,-4px); }
+    75%{ transform: translate(-3px,-2px); }
+    100%{ transform: translate(5px,3px); }
+  }
+  .volcano-wrap{
+    position:absolute; bottom:0; left:0; right:0; height:55%;
+  }
+  .volcano-svg{ position:absolute; bottom:0; width:100%; height:100%; }
+  .glow{
+    position:absolute; bottom:-10%; left:50%; transform:translateX(-50%);
+    width:85vw; height:85vw; max-width:800px; max-height:800px;
+    background: radial-gradient(circle, rgba(255,130,20,0.95) 0%, rgba(255,60,0,0.5) 40%, transparent 72%);
+    filter: blur(6px); opacity:0;
+  }
+  .eruption.active .glow{ animation: glowpulse 1.5s ease-in-out infinite; }
+  @keyframes glowpulse{
+    0%,100%{ opacity:.6; transform:translateX(-50%) scale(1); }
+    50%{ opacity:1; transform:translateX(-50%) scale(1.15); }
+  }
+  .eruption-text{
+    position:relative; z-index:2; text-align:center;
+    font-family:'Zen Old Mincho', serif; font-weight:900;
+    font-size: clamp(3rem, 16vw, 5.2rem);
+    color:#fff5e0;
+    text-shadow: 0 0 15px var(--magma), 0 0 45px rgba(255,69,0,.9), 0 6px 20px rgba(0,0,0,0.8);
+    opacity:0;
+  }
+  .eruption.active .eruption-text{ animation: eruptext 2.2s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+  @keyframes eruptext{
+    0%{ opacity:0; transform: scale(.4) rotate(-5deg); }
+    12%{ opacity:1; transform: scale(1.1) rotate(2deg); }
+    22%{ transform: scale(1) rotate(0deg); }
+    85%{ opacity:1; }
+    100%{ opacity:0; transform: translateY(-30px) scale(0.9); }
+  }
+
+  /* ---- result card ---- */
+  .result{
+    width:100%; margin-top: 10px;
+    background: linear-gradient(180deg, var(--washi) 0%, var(--washi-dark) 100%);
+    color: var(--ink);
+    border-radius: 20px;
+    padding: clamp(20px,5vw,32px);
+    box-shadow: 0 22px 50px rgba(0,0,0,.55), inset 0 0 0 2px rgba(184,34,31,.12);
+    position:relative;
+    display:none;
+    opacity:0; transform: translateY(25px) scale(.96);
+    transition: border 0.3s ease;
+  }
+  .result.show{
+    display:block;
+    animation: resultin .65s cubic-bezier(0.23, 1, 0.32, 1) forwards;
+  }
+  .result.premium-gold {
+    box-shadow: 0 22px 50px rgba(0,0,0,.65), 0 0 0 3px var(--gold), inset 0 0 20px rgba(212,160,23,0.25);
+  }
+  @keyframes resultin{
+    to{ opacity:1; transform: translateY(0) scale(1); }
+  }
+  .result::before{
+    content:''; position:absolute; inset:0; border-radius:20px;
+    border: 2px dashed rgba(184,34,31,.35);
+    margin: 8px; pointer-events:none;
+  }
+  .result.premium-gold::before {
+    border-color: rgba(184,34,31,.5);
+  }
+  .rank-row{ display:flex; align-items:center; justify-content:space-between; gap:10px; }
+  .rank{
+    font-family:'Zen Old Mincho', serif; font-weight:900;
+    font-size: clamp(1.8rem, 8vw, 2.5rem);
+    color: var(--shrine-red-deep);
+    letter-spacing:.06em;
+  }
+  .result.premium-gold .rank {
+    text-shadow: 0 0 1px rgba(0,0,0,0.1);
+    background: linear-gradient(135deg, #a61c19 0%, #da2e2a 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+  .rank-num{
+    font-family:'Shippori Antique', sans-serif;
+    font-size:.78rem; color:#8a6a3d; letter-spacing:.15em;
+    background: rgba(0,0,0,0.04); padding: 4px 10px; border-radius: 6px;
+  }
+  .photo-frame{
+    margin: 16px 0; border-radius:14px; overflow:hidden;
+    aspect-ratio: 4/3; background:#d2c49d;
+    box-shadow: inset 0 0 0 4px #fff, 0 8px 20px rgba(0,0,0,.28);
+    display:flex; align-items:center; justify-content:center;
+    position:relative;
+  }
+  .photo-frame img{ width:100%; height:100%; object-fit:cover; display:block; }
+  .photo-fallback{
+    font-family:'Shippori Antique', sans-serif; font-size:.82rem;
+    color:#736442; text-align:center; padding:16px; line-height:1.6;
+  }
+  .msg-title{
+    font-family:'Zen Maru Gothic', sans-serif; font-weight:900;
+    font-size: clamp(1.1rem, 4.8vw, 1.3rem);
+    margin: 6px 0 8px; color: var(--ink);
+    line-height: 1.4;
+  }
+  .msg-body{
+    font-size: clamp(.92rem, 3.8vw, 1.02rem); line-height:1.9; color:#332817;
+  }
+  .msg-body b{ color: var(--shrine-red); background: rgba(184,34,31,0.06); padding: 0 2px; border-radius: 3px; }
+  .divider{
+    height:1px; margin:18px 0; border:none;
+    background: repeating-linear-gradient(90deg, rgba(184,34,31,.35) 0 6px, transparent 6px 12px);
+  }
+  .share-mark{
+    text-align:center; margin-top:12px;
+    font-family:'Shippori Antique', sans-serif; font-size:.72rem;
+    letter-spacing:.18em; color:#a38355; font-weight: bold;
+  }
+  
+  /* Buttons Layout */
+  .actions{ display:flex; gap:10px; margin-top:16px; width:100%; }
+  .again-btn{
+    flex:1; font-family:'Zen Maru Gothic', sans-serif; font-weight:900;
+    font-size:1rem; padding:14px 10px; border-radius:12px; border:none;
+    background: linear-gradient(180deg, #d32f2f, var(--shrine-red) 60%, var(--shrine-red-deep) 100%);
+    color:#fff7f0; box-shadow: 0 4px 0 #540e0c, 0 6px 12px rgba(0,0,0,0.25);
+    cursor:pointer; min-height:46px; transition: transform 0.1s;
+  }
+  .again-btn:active{ transform: translateY(3px); box-shadow: 0 1px 0 #540e0c, 0 2px 4px rgba(0,0,0,0.25); }
+
+  .share-grid{
+    display:grid; grid-template-columns: 1fr 1fr;
+    gap:10px; margin-top:14px; width:100%;
+  }
+  .share-tile{
+    font-family:'Zen Maru Gothic', sans-serif; font-weight:900;
+    font-size:.88rem; padding:13px 8px; border-radius:12px; border:none;
+    cursor:pointer; min-height:46px; color:#fff;
+    display:flex; align-items:center; justify-content:center; gap:8px;
+    transition: all 0.1s ease;
+  }
+  .share-tile:disabled{ opacity:.5; cursor:default; transform:none !important; box-shadow:none !important; }
+  .save-tile {
+    background: linear-gradient(180deg, #32294f, #1f1933);
+    box-shadow: 0 4px 0 #0f0b1a; grid-column: 1 / -1;
+  }
+  .save-tile:active{ transform: translateY(3px); box-shadow: 0 1px 0 #0f0b1a; }
+  .line-tile{ background: linear-gradient(180deg, #06e060, #05b04b); box-shadow:0 4px 0 #037833; }
+  .line-tile:active{ transform: translateY(3px); box-shadow:0 1px 0 #037833; }
+  .x-tile{ background: linear-gradient(180deg, #262626, #000000); box-shadow:0 4px 0 #111; }
+  .x-tile:active{ transform: translateY(3px); box-shadow:0 1px 0 #111; }
+  .discord-tile{ background: linear-gradient(180deg, #6572f6, #4754e3); box-shadow:0 4px 0 #2b35a3; }
+  .discord-tile:active{ transform: translateY(3px); box-shadow:0 1px 0 #2b35a3; }
+
+  /* Toast Overlay */
+  .toast{
+    position:fixed; left:50%; bottom:28px; transform:translateX(-50%) translateY(140%);
+    background: rgba(22, 17, 36, 0.95); color:#f2e8d3;
+    border:1px solid rgba(212,160,23,.4); backdrop-filter: blur(8px);
+    padding:14px 22px; border-radius:14px; font-size:.85rem; line-height:1.6;
+    max-width: 90vw; width: max-content; text-align:center; z-index:200;
+    box-shadow: 0 12px 35px rgba(0,0,0,.6);
+    transition: transform .3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  }
+  .toast.show{ transform: translateX(-50%) translateY(0); }
+
+  footer{
+    margin-top:26px; padding-top: 14px;
+    font-size:.7rem; color:#626891; text-align:center;
+    letter-spacing:.06em; line-height: 1.5;
+  }
+
+  @media (prefers-reduced-motion: reduce){
+    .box-stage.shaking, .eruption.shake, .eruption.active .glow,
+    .eruption.active .eruption-text, .bg-ember, .omikuji-stick { animation: none !important; transition: none !important; }
+  }
+</style>
+</head>
+<body>
+  <div class="stars"></div>
+  <div class="bg-embers" id="bgEmbers"></div>
+  
+  <div class="wrap">
+    
+    <div id="homeScreen" class="screen active">
+      <header>
+        <p class="eyebrow">VOLCANIC FORTUNE SLIP</p>
+        <h1>ボル<span>み</span>くじ</h1>
+        <p class="sub">箱を振って、運命の一本を引け。<br>結果が出た瞬間、大いなる大地の噴火が始まる。</p>
+      </header>
+
+      <div class="controls-row">
+        <div class="name-box">
+          <label for="nameInput">なまえ</label>
+          <input type="text" id="nameInput" placeholder="ニックネームを入力" maxlength="14" autocomplete="off">
+        </div>
+        <button class="sound-toggle" id="soundToggle" aria-label="音声を切替" title="音声を切替">🔊</button>
+      </div>
+
+      <button class="primary-btn" id="startBtn">おみくじ場へ</button>
+      <footer>写真は同じフォルダに img1.jpg 〜 img9.jpg として保存してください。</footer>
+    </div>
+    <div id="drawScreen" class="screen">
+      <header style="margin-bottom: 10px;">
+        <h1 style="font-size: clamp(2.2rem, 9vw, 3rem);">ボル<span>み</span>くじ</h1>
+      </header>
+
+      <div class="scene">
+        <div class="omikuji-stick" id="omikujiStick">
+          <span class="omikuji-stick-text" id="stickText">大吉</span>
+        </div>
+        <div class="box-stage" id="boxStage" role="button" aria-label="おみくじ箱を振る" tabindex="0">
+          <svg class="box-svg" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+            <defs>
+              <linearGradient id="boxwood" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stop-color="#7a3b22"/>
+                <stop offset="100%" stop-color="#4a2213"/>
+              </linearGradient>
+              <linearGradient id="boxlid" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stop-color="#9a4b2a"/>
+                <stop offset="100%" stop-color="#6d3218"/>
+              </linearGradient>
+            </defs>
+            <rect x="30" y="70" width="140" height="110" rx="6" fill="url(#boxwood)" stroke="#2e150a" stroke-width="3"/>
+            <rect x="24" y="55" width="152" height="26" rx="6" fill="url(#boxlid)" stroke="#2e150a" stroke-width="3"/>
+            <circle cx="100" cy="68" r="9" fill="#1c0d05" stroke="#f2c879" stroke-width="2"/>
+            <rect x="45" y="95" width="110" height="14" rx="4" fill="#f2e8d3" opacity=".9"/>
+            <text x="100" y="106" font-size="12" text-anchor="middle" fill="#7c1614" font-family="Zen Old Mincho, serif" font-weight="900">御神籤</text>
+            <rect x="45" y="118" width="110" height="52" rx="4" fill="#2e150a" opacity=".35"/>
+          </svg>
+        </div>
+        <p class="hint" id="hintText">▲ タップ・クリック または<br>スマホを振って引く ▲</p>
+      </div>
+
+      <button class="primary-btn" id="drawBtn">おみくじを引く</button>
+      <p class="stick-count">全 <span id="totalCount">9</span> 種 ・ 残り <span id="remainCount">9</span> 種</p>
+      
+      <button class="text-btn" id="backHomeFromDraw">ホームへ戻る</button>
+    </div>
+    <div id="resultScreen" class="screen">
+      <header style="margin-bottom: 5px;">
+        <p class="eyebrow" style="margin-bottom:4px;">RESULT</p>
+        <h1 style="font-size: clamp(2.2rem, 9vw, 3rem);">ボル<span>み</span>くじ</h1>
+      </header>
+
+      <div class="result" id="result">
+        <div class="share-card" id="shareCard">
+          <div class="rank-row">
+            <div class="rank" id="rankText">大吉</div>
+            <div class="rank-num" id="rankNum">NO. 01</div>
+          </div>
+          <div class="photo-frame">
+            <img id="resultImg" src="" alt="結果の写真" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+            <div class="photo-fallback" style="display:none;">写真が見つかりません。<br>同じフォルダ内に<br><b id="fallbackName">img1.jpg</b> を配置してください。</div>
+          </div>
+          <hr class="divider">
+          <div class="msg-title" id="msgTitle"></div>
+          <div class="msg-body" id="msgBody"></div>
+          <div class="share-mark">⛩ ボルみくじ</div>
+        </div>
+        <div class="actions">
+          <button class="again-btn" id="againBtn">もう一度引く</button>
+        </div>
+        <div class="share-grid">
+          <button class="share-tile save-tile" id="saveImgBtn">🖼 結果画像を端末に保存</button>
+          <button class="share-tile line-tile" id="lineBtn">LINEアプリで共有</button>
+          <button class="share-tile x-tile" id="xBtn">Xアプリで共有</button>
+          <button class="share-tile discord-tile" id="discordBtn">Discordで共有</button>
+        </div>
+      </div>
+
+      <button class="text-btn" id="backHomeFromResult">ホームへ戻る</button>
+    </div>
+    </div>
+
+  <div class="toast" id="toast"></div>
+
+  <div class="eruption" id="eruption">
+    <div class="glow"></div>
+    <div class="volcano-wrap">
+      <svg class="volcano-svg" viewBox="0 0 400 240" preserveAspectRatio="xMidYMax slice" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <linearGradient id="mountain" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stop-color="#3a2018"/>
+            <stop offset="100%" stop-color="#140705"/>
+          </linearGradient>
+          <linearGradient id="lava" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stop-color="#fffbde"/>
+            <stop offset="35%" stop-color="#ff9900"/>
+            <stop offset="100%" stop-color="#ff2200"/>
+          </linearGradient>
+        </defs>
+        <polygon points="0,240 130,60 155,90 175,60 200,95 225,60 245,90 270,60 400,240" fill="url(#mountain)"/>
+        <polygon points="150,80 200,25 250,80 235,80 200,45 165,80" fill="url(#lava)">
+          <animate attributeName="opacity" values="0.75;1;0.75" dur="0.4s" repeatCount="indefinite"/>
+        </polygon>
+        <path d="M175,70 C165,110 150,150 120,240 L160,240 C180,160 190,110 195,72 Z" fill="url(#lava)" opacity=".95"/>
+        <path d="M225,70 C235,110 250,150 280,240 L240,240 C220,160 210,110 205,72 Z" fill="url(#lava)" opacity=".95"/>
+      </svg>
+    </div>
+    <div class="eruption-text" id="eruptionText">大噴火!!</div>
+  </div>
+
+<script>
+(function(){
+  const fortunes = [
+    {
+      rank: "大吉", num: "NO. 01", img: "img1.jpg",
+      title: "全開火山ブースト。",
+      body: "気分は最高潮、<b>MEW</b>Tシャツ級のご機嫌度。今日やろうと考えたことは全てが力強くうまくいく大器の運勢。マグマのごとく突き進むべし。"
+    },
+    {
+      rank: "吉", num: "NO. 02", img: "img2.jpg",
+      title: "ピースサインの余裕。",
+      body: "何が起きてもブレない絶対の安心感。多少のハプニングも<b>ダブルピース✌️✌️</b>で綺麗に解決できる、愛嬌あふれる一日。"
+    },
+    {
+      rank: "中吉", num: "NO. 03", img: "img.3.jpg",
+      title: "適度な脱力、それが吉。",
+      body: "きちんとしているようで少し肩の力が抜けている。そんな大人のバランスが冴え渡る日。真面目8割、遊び2割の配分で幸運が舞い込む。"
+    },
+    {
+      rank: "小吉", num: "NO. 04", img: "img.4.jpg",
+      title: "己のスタイルを貫け。",
+      body: "暗闇に光る棒を構えるがごとき、一見謎に見えても全力で取り組めば主役になれる運気。照れを捨てて堂々と決めるべし。"
+    },
+    {
+      rank: "末吉", num: "NO. 05", img: "img.5.jpg",
+      title: "英気を養う安息の刻。",
+      body: "今日は無理をして山を登る必要なし。仲間と雑にリラックスして転がっているだけで、エネルギーが底から満ちてくる休火山タイム。"
+    },
+    {
+      rank: "半吉", num: "NO. 06", img: "img.6.jpg",
+      title: "選択は直感に任せよ。",
+      body: "進むべきか留まるべきか迷いが生じやすい。しかし<b>どちらの道を選んでも正解へ繋がる</b>ので、迷わずファーストインプレッションを信じるべし。"
+    },
+    {
+      rank: "末小吉", num: "NO. 07", img: "img7.jpg",
+      title: "地下に眠る大いなるエネルギー。",
+      body: "今の努力はすぐには目に見えないかもしれない。しかし、<b>マグマは確実に地下深くに溜まっている</b>。焦らず地道に継続すれば大化けの予感。"
+    },
+    {
+      rank: "小凶", num: "NO. 08", img: "img8.jpg",
+      title: "小さな噴石に注意せよ。",
+      body: "大きな痛手にはならないが、細々としたケアレスミスに注意。<b>忘れ物・寝坊・メッセージの誤爆</b>などは丁寧な確認で未然に防げる。"
+    },
+    {
+      rank: "半凶", num: "NO. 09", img: "img9.jpg",
+      title: "噴煙による視界一時不良。",
+      body: "少し先が見えづらく、モヤモヤする時間があるかも。強引に答えを出そうとせず、<b>煙が晴れるのをゆったりと待つ</b>のが賢明な防衛策。"
+    },
+    {
+      rank: "大凶", num: "NO. ??", img: "",
+      title: "超巨大火山、大激怒。",
+      body: "あまりの熱量に写真データが焼き尽くされた。今日は大人しくセーフティモードで過ごそう。<b>火山エネルギーがリセットされたため、明日は特大吉確定。</b>"
+    }
+  ];
+
+  const TOTAL = fortunes.length - 1;
+  const RARE_INDEX = fortunes.length - 1;
+  let remaining = Array.from({length: TOTAL}, (_,i)=>i);
+  document.getElementById('totalCount').textContent = TOTAL;
+
+  const homeScreen = document.getElementById('homeScreen');
+  const drawScreen = document.getElementById('drawScreen');
+  const resultScreen = document.getElementById('resultScreen');
+  
+  const boxStage = document.getElementById('boxStage');
+  const drawBtn = document.getElementById('drawBtn');
+  const hintText = document.getElementById('hintText');
+  const result = document.getElementById('result');
+  const eruption = document.getElementById('eruption');
+  const remainCount = document.getElementById('remainCount');
+  const nameInput = document.getElementById('nameInput');
+  const omikujiStick = document.getElementById('omikujiStick');
+  const stickText = document.getElementById('stickText');
+  const soundToggle = document.getElementById('soundToggle');
+
+  // Web Audio API Sound Synthesizer
+  let isMuted = false;
+  const AudioFX = {
+    ctx: null,
+    init() {
+      if (!this.ctx && !isMuted) {
+        const AudioCtx = window.AudioContext || window.webkitAudioContext;
+        if (AudioCtx) {
+          try { this.ctx = new AudioCtx(); } catch(e) { isMuted = true; }
+        } else {
+          isMuted = true;
+        }
+      }
+    },
+    playShake() {
+      this.init(); if (!this.ctx || isMuted) return;
+      const osc = this.ctx.createOscillator();
+      const gain = this.ctx.createGain();
+      osc.type = 'triangle';
+      osc.frequency.setValueAtTime(110 + Math.random() * 70, this.ctx.currentTime);
+      gain.gain.setValueAtTime(0.12, this.ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.005, this.ctx.currentTime + 0.07);
+      osc.connect(gain); gain.connect(this.ctx.destination);
+      osc.start(); osc.stop(this.ctx.currentTime + 0.07);
+    },
+    playEruption() {
+      this.init(); if (!this.ctx || isMuted) return;
+      const bufferSize = this.ctx.sampleRate * 2.2;
+      const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+      const data = buffer.getChannelData(0);
+      for (let i = 0; i < bufferSize; i++) { data[i] = Math.random() * 2 - 1; }
+      
+      const noise = this.ctx.createBufferSource();
+      noise.buffer = buffer;
+      const filter = this.ctx.createBiquadFilter();
+      filter.type = 'lowpass';
+      filter.frequency.setValueAtTime(340, this.ctx.currentTime);
+      filter.frequency.exponentialRampToValueAtTime(70, this.ctx.currentTime + 2.0);
+      
+      const gain = this.ctx.createGain();
+      gain.gain.setValueAtTime(0.35, this.ctx.currentTime);
+      gain.gain.linearRampToValueAtTime(0.4, this.ctx.currentTime + 0.3);
+      gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 2.2);
+      
+      noise.connect(filter); filter.connect(gain); gain.connect(this.ctx.destination);
+      noise.start();
+    },
+    playChime(isPremium) {
+      this.init(); if (!this.ctx || isMuted) return;
+      const t = this.ctx.currentTime;
+      const notes = isPremium ? [523.25, 659.25, 783.99, 1046.50, 1318.51] : [523.25, 659.25, 783.99];
+      notes.forEach((freq, idx) => {
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(freq, t + idx * 0.08);
+        gain.gain.setValueAtTime(isPremium ? 0.08 : 0.1, t + idx * 0.08);
+        gain.gain.exponentialRampToValueAtTime(0.001, t + idx * 0.08 + 0.45);
+        osc.connect(gain); gain.connect(this.ctx.destination);
+        osc.start(t + idx * 0.08); osc.stop(t + idx * 0.08 + 0.45);
+      });
+    }
+  };
+
+  soundToggle.addEventListener('click', () => {
+    isMuted = !isMuted;
+    if (isMuted) {
+      soundToggle.textContent = '❌';
+      soundToggle.classList.add('muted');
+    } else {
+      soundToggle.textContent = '🔊';
+      soundToggle.classList.remove('muted');
+      AudioFX.init();
+    }
+  });
+
+  const bgEmbers = document.getElementById('bgEmbers');
+  function createAmbientEmber() {
+    if(document.hidden) return;
+    const ember = document.createElement('div');
+    ember.className = 'bg-ember';
+    const size = 3 + Math.random() * 5;
+    ember.style.width = size + 'px';
+    ember.style.height = size + 'px';
+    ember.style.left = Math.random() * 100 + '%';
+    ember.style.setProperty('--drift', ((Math.random() - 0.5) * 80) + 'px');
+    ember.style.animationDuration = (6 + Math.random() * 6) + 's';
+    bgEmbers.appendChild(ember);
+    setTimeout(() => ember.remove(), 12000);
+  }
+  setInterval(createAmbientEmber, 800);
+
+  function updateRemain(){ remainCount.textContent = remaining.length > 0 ? remaining.length : TOTAL; }
+  updateRemain();
+
+  function pickIndex(){
+    if (Math.random() < 0.07) return RARE_INDEX; 
+    if (remaining.length === 0) remaining = Array.from({length: TOTAL}, (_,i)=>i);
+    const i = Math.floor(Math.random()*remaining.length);
+    const idx = remaining[i];
+    remaining.splice(i,1);
+    updateRemain();
+    return idx;
+  }
+
+  function spawnEruptionParticles(count){
+    const container = eruption;
+    for(let i=0;i<count;i++){
+      const e = document.createElement('div');
+      e.className = 'bg-ember';
+      const size = 6 + Math.random()*15;
+      e.style.width = size+'px'; e.style.height = size+'px';
+      e.style.left = (35 + Math.random()*30)+'%'; e.style.bottom = '15%';
+      e.style.background = 'radial-gradient(circle, #fff, var(--magma-2) 40%, var(--magma) 80%, transparent)';
+      e.style.position = 'absolute'; e.style.zIndex = '3';
+      
+      const dist = 250 + Math.random()*300;
+      const dur = 1.0 + Math.random()*1.0;
+      const delay = Math.random()*0.4;
+      
+      e.animate([
+        { transform:'translate(0,0) scale(0.6)', opacity:0 },
+        { transform:`translate(${(Math.random()-0.5)*180}px, -${dist*0.4}px) scale(1.3)`, opacity:1, offset:0.2 },
+        { transform:`translate(${(Math.random()-0.5)*320}px, -${dist}px) scale(0.2)`, opacity:0 }
+      ], { duration: dur*1000, delay: delay*1000, easing:'cubic-bezier(0.1, 0.8, 0.2, 1)' });
+      
+      container.appendChild(e);
+      setTimeout(()=>e.remove(), (dur+delay)*1000 + 100);
+    }
+  }
+
+  let currentFortune = null;
+
+  function showResult(f){
+    currentFortune = f;
+    document.getElementById('rankText').textContent = f.rank;
+    document.getElementById('rankNum').textContent = f.num;
+    document.getElementById('msgTitle').textContent = f.title;
+    document.getElementById('msgBody').innerHTML = f.body;
+    
+    if (f.rank === "大吉") {
+      result.classList.add('premium-gold');
+    } else {
+      result.classList.remove('premium-gold');
+    }
+
+    const img = document.getElementById('resultImg');
+    const fallback = img.nextElementSibling;
+    fallback.style.display = 'none';
+    img.style.display = 'block';
+    document.getElementById('fallbackName').textContent = f.img || 'img1.jpg';
+    
+    if (f.img){
+      img.src = f.img;
+    } else {
+      img.removeAttribute('src');
+      img.style.display = 'none';
+      fallback.style.display = 'flex';
+    }
+    
+    // 切り替え前に表示状態をリセット
+    result.classList.remove('show');
+    void result.offsetWidth;
+    
+    // 画面をリザルト画面に切り替え
+    switchScreen(resultScreen);
+    
+    // 表示アニメーションをトリガー
+    result.classList.add('show');
+    
+    setTimeout(() => {
+      AudioFX.playChime(f.rank === "大吉");
+    }, 150);
+  }
+
+  function shareText(f){
+    return `【ボルみくじ】運勢は「${f.rank}」！\n『${f.title}』\n${f.body.replace(/<[^>]*>/g, '')}\n⛩️ 火山鳴動、おみくじを引こう！`;
+  }
+
+  let toastTimer = null;
+  function toast(msg){
+    const el = document.getElementById('toast');
+    el.textContent = msg; el.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(()=> el.classList.remove('show'), 3500);
+  }
+
+  function getShareImageBlob(){
+    return new Promise((resolve, reject) => {
+      if (typeof html2canvas === 'undefined'){
+        reject(new Error('html2canvas not loaded')); return;
+      }
+      html2canvas(document.getElementById('shareCard'), { 
+        backgroundColor: '#f2e8d3', 
+        scale: 2.5, 
+        useCORS: true,
+        logging: false
+      })
+      .then(canvas => canvas.toBlob(blob => blob ? resolve(blob) : reject(new Error('toBlob failed')), 'image/png'))
+      .catch(reject);
+    });
+  }
+
+  async function saveShareImage(){
+    const btn = document.getElementById('saveImgBtn');
+    const original = btn.textContent;
+    btn.disabled = true; btn.textContent = '✨ 高画質画像を作成中…';
+    try{
+      const blob = await getShareImageBlob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = 'ボルみくじ_結果.png';
+      document.body.appendChild(a); a.click(); a.remove();
+      URL.revokeObjectURL(url);
+      toast('画像を保存しました！LINEやX、Discordに添付して自慢しましょう。');
+    }catch(err){
+      console.error(err);
+      toast('画像の書き出しに失敗しました。ブラウザの権限設定を確認してください。');
+    }finally{
+      btn.disabled = false; btn.textContent = original;
+    }
+  }
+
+  function shareToLine(){
+    if (!currentFortune) return;
+    const text = encodeURIComponent(shareText(currentFortune));
+    window.open(`https://line.me/R/msg/text/?${text}`, '_blank');
+    toast('LINE用の画面を開きました。画像付きで送る場合は、あらかじめ「画像を保存」して添付してください。');
+  }
+
+  function shareToX(){
+    if (!currentFortune) return;
+    const text = shareText(currentFortune) + "\n#ボルみくじ";
+    const encodedText = encodeURIComponent(text);
+    const xWebIntentUrl = `https://x.com/intent/tweet?text=${encodedText}`;
+    
+    window.open(xWebIntentUrl, '_blank');
+    toast('Xでポスト画面を開きました（アプリがインストールされている場合は自動で起動します）。');
+  }
+
+  async function shareToDiscord(){
+    if (!currentFortune) return;
+    const text = shareText(currentFortune);
+    const btn = document.getElementById('discordBtn');
+    const original = btn.textContent;
+
+    if (navigator.share){
+      btn.disabled = true; btn.textContent = '共有シート準備中…';
+      try{
+        let file = null;
+        try{ file = new File([await getShareImageBlob()], 'volcano-fortune.png', { type:'image/png' }); }catch(e){}
+        if (file && navigator.canShare && navigator.canShare({ files:[file] })){
+          await navigator.share({ files:[file], title:'ボルみくじ結果', text });
+        } else {
+          await navigator.share({ title:'ボルみくじ結果', text });
+        }
+      }catch(err){}finally{ btn.disabled = false; btn.textContent = original; }
+      return;
+    }
+
+    try{
+      await navigator.clipboard.writeText(text);
+      await saveShareImage();
+      toast('結果の文章をクリップボードにコピーし、画像を保存しました！Discordに貼り付けて送信してください。');
+    }catch(err){
+      toast('クリップボードコピーに失敗しました。文章を手動コピーしてDiscordに共有してください。');
+    }
+  }
+
+  document.getElementById('saveImgBtn').addEventListener('click', saveShareImage);
+  document.getElementById('lineBtn').addEventListener('click', shareToLine);
+  document.getElementById('xBtn').addEventListener('click', shareToX);
+  document.getElementById('discordBtn').addEventListener('click', shareToDiscord);
+
+
+  /* ---- Screen Navigation & Shake Detection ---- */
+  function switchScreen(screenEl) {
+    homeScreen.classList.remove('active');
+    drawScreen.classList.remove('active');
+    resultScreen.classList.remove('active');
+    
+    screenEl.classList.add('active');
+    window.scrollTo(0, 0);
+  }
+
+  let lastUpdate = 0;
+  let lastX = 0, lastY = 0, lastZ = 0;
+  const SHAKE_THRESHOLD = 80;
+
+  function handleDeviceMotion(e) {
+    if (!drawScreen.classList.contains('active') || drawBtn.disabled) return;
+    
+    const acc = e.accelerationIncludingGravity;
+    if (!acc) return;
+
+    const now = Date.now();
+    if (now - lastUpdate > 100) {
+      const diffTime = now - lastUpdate;
+      lastUpdate = now;
+
+      const x = acc.x || 0;
+      const y = acc.y || 0;
+      const z = acc.z || 0;
+
+      const speed = Math.abs(x + y + z - lastX - lastY - lastZ) / diffTime * 10000;
+      if (speed > SHAKE_THRESHOLD) {
+        runDraw();
+      }
+
+      lastX = x;
+      lastY = y;
+      lastZ = z;
+    }
+  }
+
+  document.getElementById('startBtn').addEventListener('click', async () => {
+    AudioFX.init(); 
+    
+    try {
+      // センサーの権限リクエスト（HTTPS環境以外ではエラーになるためtry-catchで保護）
+      if (typeof DeviceMotionEvent !== 'undefined' && typeof DeviceMotionEvent.requestPermission === 'function') {
+        const permissionState = await DeviceMotionEvent.requestPermission();
+        if (permissionState === 'granted') {
+          window.addEventListener('devicemotion', handleDeviceMotion, false);
+        }
+      } else {
+        window.addEventListener('devicemotion', handleDeviceMotion, false);
+      }
+    } catch(err) {
+      console.warn("DeviceMotion is not supported in this environment.", err);
+    }
+    
+    // エラーが起きても確実に画面を切り替える
+    switchScreen(drawScreen);
+  });
+
+  document.getElementById('backHomeFromDraw').addEventListener('click', () => {
+    switchScreen(homeScreen);
+  });
+  
+  document.getElementById('backHomeFromResult').addEventListener('click', () => {
+    result.classList.remove('show');
+    switchScreen(homeScreen);
+  });
+
+  /* ---- Draw Execution ---- */
+  let shakeInterval = null;
+  function runDraw(){
+    if (drawBtn.disabled) return;
+    
+    drawBtn.disabled = true;
+    hintText.style.visibility = 'hidden';
+    boxStage.classList.add('shaking');
+    result.classList.remove('show');
+    omikujiStick.classList.remove('drawn');
+
+    AudioFX.init();
+    shakeInterval = setInterval(() => AudioFX.playShake(), 90);
+
+    if (navigator.vibrate) navigator.vibrate([60, 40, 60, 40, 60]);
+
+    setTimeout(()=>{
+      clearInterval(shakeInterval);
+      boxStage.classList.remove('shaking');
+      
+      const idx = pickIndex();
+      const fortune = fortunes[idx];
+      stickText.textContent = fortune.rank;
+      
+      omikujiStick.classList.add('drawn');
+      if (navigator.vibrate) navigator.vibrate(100);
+      
+      setTimeout(() => {
+        eruption.classList.add('active', 'flash');
+        AudioFX.playEruption();
+        if (navigator.vibrate) navigator.vibrate([400, 100, 300]);
+        
+        requestAnimationFrame(()=> eruption.classList.add('shake'));
+        spawnEruptionParticles(35);
+        setTimeout(()=> spawnEruptionParticles(25), 400);
+        setTimeout(()=> spawnEruptionParticles(20), 900);
+
+        setTimeout(()=>{
+          eruption.classList.remove('shake', 'flash', 'active');
+          omikujiStick.classList.remove('drawn');
+          
+          showResult(fortune); // この中で結果画面へ遷移します
+          
+          drawBtn.disabled = false;
+          hintText.style.visibility = 'visible';
+        }, 2400);
+        
+      }, 1000);
+
+    }, 1200); 
+  }
+
+  drawBtn.addEventListener('click', runDraw);
+  boxStage.addEventListener('click', runDraw);
+  boxStage.addEventListener('keydown', (e)=>{ if(e.key==='Enter' || e.key===' ') runDraw(); });
+  
+  document.getElementById('againBtn').addEventListener('click', ()=>{
+    result.classList.remove('show');
+    switchScreen(drawScreen);
+  });
+})();
+</script>
+</body>
+</html>
