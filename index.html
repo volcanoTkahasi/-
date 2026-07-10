@@ -275,21 +275,41 @@
     0%,100%{ opacity:.6; transform:translateX(-50%) scale(1); }
     50%{ opacity:1; transform:translateX(-50%) scale(1.15); }
   }
+  
+  /* 噴火テキストのスタイル（変更点） */
   .eruption-text{
     position:relative; z-index:2; text-align:center;
     font-family:'Zen Old Mincho', serif; font-weight:900;
-    font-size: clamp(3rem, 16vw, 5.2rem);
+    font-size: clamp(2.6rem, 14vw, 4.6rem); /* 長い文字が入るように少し小さめ */
     color:#fff5e0;
     text-shadow: 0 0 15px var(--magma), 0 0 45px rgba(255,69,0,.9), 0 6px 20px rgba(0,0,0,0.8);
-    opacity:0;
+    opacity:0; display:none;
   }
-  .eruption.active .eruption-text{ animation: eruptext 2.2s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+  .eruption-text.play{
+    display: block;
+    animation: eruptext 2.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  }
   @keyframes eruptext{
     0%{ opacity:0; transform: scale(.4) rotate(-5deg); }
     12%{ opacity:1; transform: scale(1.1) rotate(2deg); }
     22%{ transform: scale(1) rotate(0deg); }
     85%{ opacity:1; }
     100%{ opacity:0; transform: translateY(-30px) scale(0.9); }
+  }
+
+  /* 🌈 確定演出（レインボーモード）のCSS 🌈 */
+  .eruption.rainbow-mode .volcano-wrap,
+  .eruption.rainbow-mode .glow {
+    animation: rainbowHue 0.8s linear infinite;
+  }
+  .eruption.rainbow-mode .eruption-text {
+    color: #fff;
+    text-shadow: 0 0 20px #fff, 0 0 40px #0ff, 0 0 60px #f0f;
+    animation: eruptext 2.2s cubic-bezier(0.16, 1, 0.3, 1) forwards, rainbowHue 1s linear infinite;
+  }
+  @keyframes rainbowHue {
+    0% { filter: hue-rotate(0deg); }
+    100% { filter: hue-rotate(360deg); }
   }
 
   /* ---- result card ---- */
@@ -785,7 +805,7 @@
     const fallback = document.getElementById('photoFallback');
     document.getElementById('fallbackName').textContent = f.img || 'img1.jpg';
     
-    // 画像を背景としてセット（比率崩れ防止のキモ）
+    // 画像を背景としてセット（比率崩れ防止）
     if (f.img){
       photoFrame.style.backgroundImage = `url('${f.img}')`;
       fallback.style.display = 'none';
@@ -805,7 +825,6 @@
 
   // シェア用テキストの生成（URLを必ず含める）
   function shareText(f){
-    // 現在のページのURLを取得（不要なパラメータ等があれば削除）
     const pageUrl = window.location.href.split('?')[0]; 
     return `【ボルみくじ】運勢は「${f.rank}」！\n『${f.title}』\n${f.body.replace(/<[^>]*>/g, '')}\n⛩️ 火山鳴動、おみくじを引こう！\n${pageUrl}`;
   }
@@ -866,23 +885,11 @@
       const file = new File([blob], 'volcano-fortune.png', { type: 'image/png' });
       const url = window.location.href.split('?')[0];
 
-      // スマホのシェア機能（画像＋テキスト＋URL）
       if (navigator.canShare && navigator.canShare({ files: [file] })) {
-        await navigator.share({
-          title: 'ボルみくじ結果',
-          text: text,
-          url: url,
-          files: [file]
-        });
+        await navigator.share({ title: 'ボルみくじ結果', text: text, url: url, files: [file] });
       } else if (navigator.share) {
-        // 画像なしのシェア機能（一部環境向け）
-        await navigator.share({
-          title: 'ボルみくじ結果',
-          text: text,
-          url: url
-        });
+        await navigator.share({ title: 'ボルみくじ結果', text: text, url: url });
       } else {
-        // PCなどシェア機能がない場合はクリップボードにコピー
         await navigator.clipboard.writeText(text);
         await saveShareImage();
         toast('画像とテキストをコピーしました！インスタなどに貼り付けてね。');
@@ -988,7 +995,7 @@
     switchScreen(homeScreen);
   });
 
-  /* ---- Draw Execution ---- */
+  /* ---- Draw Execution ＆ 確定演出ロジック ---- */
   let shakeInterval = null;
   function runDraw(){
     if (drawBtn.disabled) return;
@@ -1015,6 +1022,7 @@
       omikujiStick.classList.add('drawn');
       if (navigator.vibrate) navigator.vibrate(100);
       
+      // 噴火アニメーションの開始
       setTimeout(() => {
         eruption.classList.add('active', 'flash');
         AudioFX.playEruption();
@@ -1022,19 +1030,66 @@
         
         requestAnimationFrame(()=> eruption.classList.add('shake'));
         spawnEruptionParticles(35);
-        setTimeout(()=> spawnEruptionParticles(25), 400);
-        setTimeout(()=> spawnEruptionParticles(20), 900);
-
-        setTimeout(()=>{
-          eruption.classList.remove('shake', 'flash', 'active');
-          omikujiStick.classList.remove('drawn');
-          
-          showResult(fortune); 
-          
-          drawBtn.disabled = false;
-          hintText.style.visibility = 'visible';
-        }, 2400);
         
+        const eText = document.getElementById('eruptionText');
+        eText.classList.remove('play');
+        eruption.classList.remove('rainbow-mode');
+
+        // ▼ 大吉の「確定演出」ルート ▼
+        if (fortune.rank === "大吉") {
+          eText.textContent = "小噴火...？";
+          eText.classList.add('play');
+
+          setTimeout(() => {
+            // 途中で白フラッシュ＆虹色モードに切り替え
+            eruption.classList.remove('flash');
+            void eruption.offsetWidth; // 画面リフレッシュ
+            eruption.classList.add('flash', 'rainbow-mode');
+            
+            eText.classList.remove('play');
+            void eText.offsetWidth;
+            eText.textContent = "🌈 大噴火!!! 🌈";
+            eText.classList.add('play');
+            
+            AudioFX.playChime(true); // キラキラ音を鳴らす
+            if (navigator.vibrate) navigator.vibrate([200, 100, 200, 100, 400]);
+            spawnEruptionParticles(40); // 溶岩追加
+          }, 1200);
+
+          // 結果画面への遷移（演出が長いので待機時間を延長）
+          setTimeout(() => {
+            eruption.classList.remove('shake', 'flash', 'active', 'rainbow-mode');
+            eText.classList.remove('play');
+            omikujiStick.classList.remove('drawn');
+            showResult(fortune); 
+            drawBtn.disabled = false;
+            hintText.style.visibility = 'visible';
+          }, 3600); 
+
+        // ▼ 通常の演出ルート（ランクによってテキスト変更） ▼
+        } else {
+          let erupStr = "噴火!";
+          if (["大凶"].includes(fortune.rank)) erupStr = "超絶爆発!!!";
+          else if (["吉", "中吉"].includes(fortune.rank)) erupStr = "大噴火!";
+          else if (["小吉", "末吉"].includes(fortune.rank)) erupStr = "中噴火";
+          else if (["半吉", "末小吉"].includes(fortune.rank)) erupStr = "小噴火";
+          else erupStr = "微噴火...";
+
+          eText.textContent = erupStr;
+          eText.classList.add('play');
+
+          setTimeout(()=> spawnEruptionParticles(25), 400);
+          setTimeout(()=> spawnEruptionParticles(20), 900);
+
+          setTimeout(()=>{
+            eruption.classList.remove('shake', 'flash', 'active');
+            eText.classList.remove('play');
+            omikujiStick.classList.remove('drawn');
+            showResult(fortune); 
+            drawBtn.disabled = false;
+            hintText.style.visibility = 'visible';
+          }, 2400);
+        }
       }, 1000);
 
     }, 1200); 
